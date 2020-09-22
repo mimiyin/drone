@@ -1,25 +1,22 @@
 class Location {
   constructor(x, y) {
     this.loc = createVector(x, y);
-    this.d = 10;
-    this.r = this.d / 2;
+    this.diam = 10;
     this.note = loadSound(
       "https://cdn.glitch.com/af5d47e4-f2de-4786-b7f9-54bc5f643171%2Ffoghorn.wav?v=1596813716243"
     );
-    // this.note = loadSound(
-    //   "bell.wav"
-    // );
-
     this.play = true;
+    this.update();
   }
 
-  run(other) {
-    this.update(other);
-    this.display(other);
+  run() {
+    this.update();
+    this.display();
+
   }
-  // Pass angle from the user
-  update(other) {
-    let diff = p5.Vector.sub(this.loc, other.loc);
+
+  update() {
+    let diff = p5.Vector.sub(this.loc, user);
     let d = diff.mag();
     let amp = map(d, 0, diag / 4, 1, 0, true);
     // Amplify amplitude
@@ -27,9 +24,7 @@ class Location {
     let t = map(amp, 0, 1, 600, 10, true);
     t = floor(sqrt(t));
 
-    // Calculate the angle of this location
-    // Use angleBetween userAngle and thisLocationAngle to calculate a
-    let a = diff.heading() - other.a;
+    let a = diff.heading();
     // Map pitch
     let p = map(abs(a), 180, 0, -1, 1);
 
@@ -37,7 +32,14 @@ class Location {
     a -= 90;
     if (a < -180) a = map(a, -180, -270, 180, 90);
     // Map pitch
-    let r = map(a, -180, 180, 1, 2);
+    //original -180,180
+    // let newAng = angs[counter] + 180;
+    // console.log(newAng);
+    if (angs[counter] < 0) {
+      r = map(angs[counter], -180, 0, 1.5, 2); // map new pitch
+    } else {
+      r = map(angs[counter], 0, 180, 1, 1.5); // map new pitch
+    }
 
 
     // Snap to closest diatonic note
@@ -56,8 +58,7 @@ class Location {
     // Set frequency
     this.note.rate(r);
     // Set pan
-    // console.log(p);
-    if (p) this.note.pan(p);
+    this.note.pan(pannings[counter]);
 
     // Framecount
     if (frameCount % t == 0) {
@@ -74,18 +75,31 @@ class Location {
   hover() {
     let mouse = createVector(mouseX, mouseY);
     let d = p5.Vector.sub(mouse, this.loc).mag();
-    return d < this.r;
+    return d < this.diam / 2;
   }
 
-  moose(x, y) {
-    this.loc.x = x;
-    this.loc.y = y;
+  moose() {
+    var pointOffset = temploc * 2;
+    this.loc.x = curxy[pointOffset]; // here
+    this.loc.y = curxy[pointOffset + 1]; // here
+
+    tx[counter] = this.loc.x;
+    ty[counter] = this.loc.y;
+
+    counter = counter + 1;
+    if (counter >= num) {
+      counter = 0;
+    }
+
+    // display texts
+    fill(0);
+    text("x:" + str(round(this.loc.x)) + ", y:" + str(round(this.loc.y)), this.loc.x + 10, this.loc.y);
+
   }
 
-  display(other) {
-    fill('red');
-    ellipse(this.loc.x, this.loc.y, this.d, this.d);
-    stroke('red');
-    line(this.loc.x, this.loc.y, other.loc.x, other.loc.y);
+
+  display() {
+    fill("blue");
+    ellipse(this.loc.x, this.loc.y, this.diam, this.diam);
   }
 }

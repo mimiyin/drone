@@ -38,16 +38,19 @@ function setup() {
   curxy = new Float32Array(maxPoints * 2);
 }
 
+// Pressing a key and generate a random point
 function keyPressed(key) {
   for (var i = 0; i < 100; i++) {
     addPoint(random(width), random(height));
   }
 }
 
+// Create a new Location object
 function mousePressed() {
   addPoint(mouseX, mouseY);
 }
 
+// 1-D arrays for tracking 2D coordinations
 function addPoint(x, y) {
   if (pointCount < maxPoints) {
     var pointIndex = pointCount * 2;
@@ -57,6 +60,7 @@ function addPoint(x, y) {
   }
 }
 
+// Get rid of points we've lost
 function prunePoints() {
   var outputPoint = 0;
   for (var inputPoint = 0; inputPoint < pointCount; inputPoint++) {
@@ -76,7 +80,9 @@ function prunePoints() {
 function draw() {
   image(capture, 0, 0, w, h);
   capture.loadPixels();
+  // Analyzing the points
   if (capture.pixels.length > 0) { // don't forget this!
+    // Hand-off to remember the previous set
     var xyswap = prevxy;
     prevxy = curxy;
     curxy = xyswap;
@@ -85,11 +91,12 @@ function draw() {
     curpyr = pyrswap;
 
     // these are options worth breaking out and exploring
-    var winSize = 20;
+    var winSize = 20; // Increase resolution by decreasing this number
     var maxIterations = 30;
     var epsilon = 0.01;
     var minEigen = 0.001;
 
+    // CV we analyze point data against the actual image
     jsfeat.imgproc.grayscale(capture.pixels, w, h, curpyr.data[0]);
     curpyr.build(curpyr.data[0], true);
     jsfeat.optical_flow_lk.track(
@@ -99,8 +106,10 @@ function draw() {
       winSize, maxIterations,
       pointStatus,
       epsilon, minEigen);
+
     prunePoints();
 
+    // Drawing all the points
     for (var i = 0; i < pointCount; i++) {
       var pointOffset = i * 2;
       // var speed = Math.abs(prevxy[pointOffset] - curxy[pointOffset]);

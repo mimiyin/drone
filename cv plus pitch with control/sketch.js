@@ -1,16 +1,15 @@
 // https://inspirit.github.io/jsfeat/sample_oflow_lk.html
 
-var cnv;
-var capture;
-var curpyr, prevpyr, pointCount, pointStatus, prevxy, curxy;
-var w = 600,
-h = 600;
-var maxPoints = 1000;
+let cnv;
+let capture;
+let curpyr, prevpyr, pointCount, pointStatus, prevxy, curxy;
+let w = 600,
+  h = 600;
+let maxPoints = 1000;
 
 // Keep track of pitches
-let locs = [];
+let locs = {};
 let user;
-let UR = 25;
 let a = 0;
 
 // Calc max distance
@@ -19,10 +18,14 @@ let diag;
 // Reference point
 let tonic;
 
+// Keep track of play status of video
+let play = true;
+
 function preload() {
   capture = createVideo('wc1.mp4');
   capture.loop();
 }
+
 function setup() {
   // capture = createCapture({
   //   audio: false,
@@ -54,7 +57,7 @@ function setup() {
   curxy = new Float32Array(maxPoints * 2);
 
   // Hard-code user for now
-  user = createVector(width / 2, height / 2);
+  user = new User(width / 2, height / 2, 25);
   diag = sqrt(sq(width) + sq(height));
 
   // Listen for pitch change from server
@@ -63,27 +66,34 @@ function setup() {
   tonic.start();
 }
 
+// Move user
 let mUser = false;
-let aUser = false;
+// Orient user
+let oUser = false;
 
+
+// Play / pause video
+function keyPressed() {
+  if (key == ' ') {
+    play = !play;
+    if (play) capture.play();
+    else capture.pause();
+  }
+}
 
 // Reset moosing status on mousedown
 function mousePressed() {
-  if (onUser()) {
-    mUser = true;
-  } else if (onNose()) {
-    aUser = true;
-  }
+  mUser = user.onHead(mouseX, mouseY);
+  oUser = user.onNose(mouseX, mouseY);
 }
 
 function mouseDragged() {
   // Check user
   if (mUser) {
-    user.x = mouseX;
-    user.y = mouseY;
-  } else if (aUser) {
-    let rm = createVector(mouseX - user.x, mouseY - user.y);
-    a = rm.heading() + 90;
+    user.update(mouseX, mouseY)
+  } else if (oUser) {
+    // Orient user towards mouse
+    user.orient(mouseX, mouseY);
   }
 }
 
@@ -91,47 +101,38 @@ function mouseDragged() {
 function mouseReleased() {
   let removing = false;
   // Loop through all the locations
-  for (let l = locs.length - 1; l >= 0; l -= 2) {
+  for (let l in locs) {
     let loc = locs[l];
-
     // Remove them
     if (loc.hover()) {
+      console.log("REMOVING POINT ", l);
       loc.stop();
-      locs.splice(l, 1);
+      delete locs[l];
       removing = true;
     }
   }
 
   // Only add if not deleting
-  if (!removing && !mUser && !aUser) addPoint(mouseX, mouseY);
+  if (!removing && !mUser && !oUser) addPoint(mouseX, mouseY);
 
+  // Reset user status
   mUser = false;
-  aUser = false;
+  oUser = false;
 }
 
-function onUser() {
-  let mouse = createVector(mouseX, mouseY);
-  let d = p5.Vector.sub(mouse, user).mag();
-  return d < UR / 2;
-}
-
-function onNose() {
-  let mouse = createVector(mouseX, mouseY);
-  let d = p5.Vector.sub(mouse, user).mag();
-  return d > UR / 2 && d < UR / 2 + 10;
-}
 
 // ------------- CV -------------
 
 // Add point to track
 // Return its index
 function addPoint(x, y) {
+  console.log("ADDING POINT ", pointCount);
   if (pointCount < maxPoints) {
     var pointIndex = pointCount * 2;
     curxy[pointIndex] = x;
     curxy[pointIndex + 1] = y;
+    locs[pointCount] = new Location(x, y);
     pointCount++;
-    locs[pointIndex] = new Location(x, y);
   }
 }
 
@@ -149,8 +150,7 @@ function prunePoints() {
         curxy[outputIndex] = curxy[inputIndex];
         curxy[outputIndex + 1] = curxy[inputIndex + 1];
       }
-      // Update locs array
-      locs[outputIndex].moose(curxy[outputIndex], curxy[outputIndex + 1]);
+      if (locs[outputPoint]) locs[outputPoint].moose(curxy[outputIndex], curxy[outputIndex + 1]);
       outputPoint++;
     }
   }
@@ -186,38 +186,15 @@ function draw() {
       winSize, maxIterations,
       pointStatus,
       epsilon, minEigen);
-      prunePoints();
+    prunePoints();
 
-      for (var i = 0; i < pointCount; i++) {
-        var pointOffset = i * 2;
-        // var speed = Math.abs(prevxy[pointOffset] - curxy[pointOffset]);
-        var r = 8;
-        // ellipse(curxy[pointOffset], curxy[pointOffset + 1], r, r);
-        let rx  = round(curxy[pointOffset])// round x
-        let ry  = round(curxy[pointOffset + 1]) // round y
-        fill('red');
-        noStroke();
-        text("x:" + rx + " y:" + ry, curxy[pointOffset] + 15, curxy[pointOffset + 1]);
-        console.log("hi", user.x, user.y)
-        stroke(255,0,0);
-        line (user.x, user.y,rx, ry);
-        noStroke();
-      }
-
-      // Go through every other location
-      for (let l = 0; l < locs.length; l += 2) {
-        let loc = locs[l];
-        loc.run(a);
-      }
+    // Go through every other location
+    for (let l in locs) {
+      let loc = locs[l];
+      if (loc) loc.run(user);
     }
-    // Draw user in the center
-    fill('white');
-    stroke(255,0,0);
-    ellipse(user.x, user.y, UR, UR);
-    push();
-    translate(user.x, user.y);
-    rotate(a);
-    fill(255,0,0);
-    triangle(-10, -UR / 2, 10, -UR / 2, 0, -(UR / 2 + 10));
-    pop();
   }
+
+  // Draw the user
+  user.display();
+}
