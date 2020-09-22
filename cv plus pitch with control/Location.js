@@ -32,7 +32,6 @@ class Location {
     let a = diff.heading() - other.a;
     // Map pitch
     let p = map(abs(a%180), 180, 0, -1, 1);
-    console.log(a, p);
 
     // Rotate angle 90-degrees clockwise
     a -= 90;
